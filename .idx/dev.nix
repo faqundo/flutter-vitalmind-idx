@@ -10,7 +10,9 @@
     pkgs.unzip
   ];
   # Sets environment variables in the workspace
-  env = {};
+  env = {
+    GOOGLE_MAPS_API_KEY="AIzaSyAD_7-5-I9hrA0IbC8rOE3xrAb93pjhHLE";
+  };
   idx = {
     # Search for the extensions you want on https://open-vsx.org/ and use "publisher.id"
     extensions = [

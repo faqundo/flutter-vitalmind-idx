@@ -1,102 +1,134 @@
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:location/location.dart';
+import 'dart:math';
 
-void main() {
-  runApp(const MyApp());
+class TrackingScreen extends StatefulWidget {
+  @override
+  _TrackingScreenState createState() => _TrackingScreenState();
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class _TrackingScreenState extends State<TrackingScreen> {
+  late GoogleMapController _mapController;
+  Location _location = Location();
+  LatLng _initialPosition = LatLng(39.4699, -0.3763); // Valencia, España
+  List<LatLng> _routePoints = []; // Lista para almacenar las ubicaciones del recorrido
+  double _totalDistance = 0.0; // Distancia total recorrida
+  bool _isTracking = false; // Estado de seguimiento
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
-      home: const MyHomePage(),
-    );
+  void initState() {
+    super.initState();
+    _initializeTracking();
   }
-}
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key});
+  Future<void> _initializeTracking() async {
+    // Obtiene la ubicación actual al iniciar
+    LocationData locationData = await _location.getLocation();
+    _initialPosition = LatLng(locationData.latitude ?? 0.0, locationData.longitude ?? 0.0);
+    _routePoints.add(_initialPosition);
+    setState(() {});
 
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  Widget _currentView = const HomeView();
-
-  void _changeView(Widget view) {
-    setState(() {
-      _currentView = view;
+    // Configura un listener para cambios de ubicación
+    _location.onLocationChanged.listen((LocationData currentLocation) {
+      if (_isTracking) {
+        _addLocationPoint(currentLocation);
+      }
     });
-    Navigator.pop(context); // Cierra el Drawer después de seleccionar
+  }
+
+  void _addLocationPoint(LocationData locationData) {
+    LatLng newPoint = LatLng(locationData.latitude ?? 0.0, locationData.longitude ?? 0.0);
+
+    if (_routePoints.isNotEmpty) {
+      // Calcula la distancia desde el último punto
+      double distance = _calculateDistance(_routePoints.last, newPoint);
+      _totalDistance += distance;
+    }
+
+    // Añade el nuevo punto a la lista
+    setState(() {
+      _routePoints.add(newPoint);
+    });
+  }
+
+  double _calculateDistance(LatLng start, LatLng end) {
+    const double earthRadius = 6371000; // Radio de la Tierra en metros
+    double dLat = _degreesToRadians(end.latitude - start.latitude);
+    double dLon = _degreesToRadians(end.longitude - start.longitude);
+
+    double a = sin(dLat / 2) * sin(dLat / 2) +
+        cos(_degreesToRadians(start.latitude)) *
+            cos(_degreesToRadians(end.latitude)) *
+            sin(dLon / 2) *
+            sin(dLon / 2);
+
+    double c = 2 * atan2(sqrt(a), sqrt(1 - a));
+    double distance = earthRadius * c; // Distancia en metros
+
+    return distance;
+  }
+
+  double _degreesToRadians(double degrees) {
+    return degrees * pi / 180;
+  }
+
+  void _toggleTracking() {
+    setState(() {
+      _isTracking = !_isTracking;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My App'),
+        title: Text('Tracking'),
       ),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: <Widget>[
-            const DrawerHeader(
-              decoration: BoxDecoration(
-                color: Colors.deepPurple,
+      body: Stack(
+        children: [
+          GoogleMap(
+            onMapCreated: (GoogleMapController controller) {
+              _mapController = controller;
+              _mapController.moveCamera(
+                CameraUpdate.newLatLng(_initialPosition),
+              );
+            },
+            initialCameraPosition: CameraPosition(
+              target: _initialPosition,
+              zoom: 15.0,
+            ),
+            myLocationEnabled: true,
+            myLocationButtonEnabled: true,
+            polylines: {
+              Polyline(
+                polylineId: PolylineId('route'),
+                points: _routePoints,
+                color: Colors.blue,
+                width: 5,
               ),
-              child: Text('Menu',
-                  style: TextStyle(color: Colors.white, fontSize: 24)),
+            },
+          ),
+          Positioned(
+            bottom: 20,
+            left: 20,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ElevatedButton(
+                  onPressed: _toggleTracking,
+                  child: Text(_isTracking ? 'Detener Seguimiento' : 'Iniciar Seguimiento'),
+                ),
+                SizedBox(height: 10),
+                Text(
+                  'Distancia recorrida: ${(_totalDistance / 1000).toStringAsFixed(2)} km',
+                  style: TextStyle(fontSize: 16, color: Colors.black),
+                ),
+              ],
             ),
-            ListTile(
-              title: const Text('Home'),
-              onTap: () => _changeView(const HomeView()),
-            ),
-            ListTile(
-              title: const Text('Profile'),
-              onTap: () => _changeView(const ProfileView()),
-            ),
-            ListTile(
-              title: const Text('Settings'),
-              onTap: () => _changeView(const SettingsView()),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
-      body: _currentView,
     );
-  }
-}
-
-class HomeView extends StatelessWidget {
-  const HomeView({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(child: Text('Home View'));
-  }
-}
-
-class ProfileView extends StatelessWidget {
-  const ProfileView({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(child: Text('Profile View'));
-  }
-}
-
-class SettingsView extends StatelessWidget {
-  const SettingsView({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(child: Text('Settings View'));
   }
 }
