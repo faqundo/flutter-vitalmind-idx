@@ -1,133 +1,67 @@
+// lib/main.dart
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:location/location.dart';
-import 'dart:math';
+import 'screens/profile_screen.dart';
+import 'screens/advisor_screen.dart';
+import 'screens/tracking_screen.dart';
 
-class TrackingScreen extends StatefulWidget {
-  @override
-  _TrackingScreenState createState() => _TrackingScreenState();
+void main() {
+  runApp(MyApp());
 }
 
-class _TrackingScreenState extends State<TrackingScreen> {
-  late GoogleMapController _mapController;
-  Location _location = Location();
-  LatLng _initialPosition = LatLng(39.4699, -0.3763); // Valencia, España
-  List<LatLng> _routePoints = []; // Lista para almacenar las ubicaciones del recorrido
-  double _totalDistance = 0.0; // Distancia total recorrida
-  bool _isTracking = false; // Estado de seguimiento
-
+class MyApp extends StatelessWidget {
   @override
-  void initState() {
-    super.initState();
-    _initializeTracking();
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Flutter Demo',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+      ),
+      home: MyHomePage(),
+    );
   }
+}
 
-  Future<void> _initializeTracking() async {
-    // Obtiene la ubicación actual al iniciar
-    LocationData locationData = await _location.getLocation();
-    _initialPosition = LatLng(locationData.latitude ?? 0.0, locationData.longitude ?? 0.0);
-    _routePoints.add(_initialPosition);
-    setState(() {});
+class MyHomePage extends StatefulWidget {
+  @override
+  _MyHomePageState createState() => _MyHomePageState();
+}
 
-    // Configura un listener para cambios de ubicación
-    _location.onLocationChanged.listen((LocationData currentLocation) {
-      if (_isTracking) {
-        _addLocationPoint(currentLocation);
-      }
-    });
-  }
+class _MyHomePageState extends State<MyHomePage> {
+  int _selectedIndex = 0;
 
-  void _addLocationPoint(LocationData locationData) {
-    LatLng newPoint = LatLng(locationData.latitude ?? 0.0, locationData.longitude ?? 0.0);
+  static List<Widget> _pages = <Widget>[
+    TrackingScreen(), // Pantalla de Tracking (Mapa)
+    AdvisorScreen(),
+    ProfileScreen(),
+  ];
 
-    if (_routePoints.isNotEmpty) {
-      // Calcula la distancia desde el último punto
-      double distance = _calculateDistance(_routePoints.last, newPoint);
-      _totalDistance += distance;
-    }
-
-    // Añade el nuevo punto a la lista
+  void _onItemTapped(int index) {
     setState(() {
-      _routePoints.add(newPoint);
-    });
-  }
-
-  double _calculateDistance(LatLng start, LatLng end) {
-    const double earthRadius = 6371000; // Radio de la Tierra en metros
-    double dLat = _degreesToRadians(end.latitude - start.latitude);
-    double dLon = _degreesToRadians(end.longitude - start.longitude);
-
-    double a = sin(dLat / 2) * sin(dLat / 2) +
-        cos(_degreesToRadians(start.latitude)) *
-            cos(_degreesToRadians(end.latitude)) *
-            sin(dLon / 2) *
-            sin(dLon / 2);
-
-    double c = 2 * atan2(sqrt(a), sqrt(1 - a));
-    double distance = earthRadius * c; // Distancia en metros
-
-    return distance;
-  }
-
-  double _degreesToRadians(double degrees) {
-    return degrees * pi / 180;
-  }
-
-  void _toggleTracking() {
-    setState(() {
-      _isTracking = !_isTracking;
+      _selectedIndex = index;
     });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Tracking'),
-      ),
-      body: Stack(
-        children: [
-          GoogleMap(
-            onMapCreated: (GoogleMapController controller) {
-              _mapController = controller;
-              _mapController.moveCamera(
-                CameraUpdate.newLatLng(_initialPosition),
-              );
-            },
-            initialCameraPosition: CameraPosition(
-              target: _initialPosition,
-              zoom: 15.0,
-            ),
-            myLocationEnabled: true,
-            myLocationButtonEnabled: true,
-            polylines: {
-              Polyline(
-                polylineId: PolylineId('route'),
-                points: _routePoints,
-                color: Colors.blue,
-                width: 5,
-              ),
-            },
+      body: _pages[_selectedIndex],
+      bottomNavigationBar: BottomNavigationBar(
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+            icon: Icon(Icons.map),
+            label: 'Tracking',
           ),
-          Positioned(
-            bottom: 20,
-            left: 20,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ElevatedButton(
-                  onPressed: _toggleTracking,
-                  child: Text(_isTracking ? 'Detener Seguimiento' : 'Iniciar Seguimiento'),
-                ),
-                SizedBox(height: 10),
-                Text(
-                  'Distancia recorrida: ${(_totalDistance / 1000).toStringAsFixed(2)} km',
-                  style: TextStyle(fontSize: 16, color: Colors.black),
-                ),
-              ],
-            ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.assessment),
+            label: 'Asesor',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Perfil',
           ),
         ],
+        currentIndex: _selectedIndex,
+        onTap: _onItemTapped,
       ),
     );
   }
